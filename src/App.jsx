@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const App = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [description, setDescription] = useState('');
-  const [calories, setCalories] = useState(null);
+  const [calories, setCalories] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleImageChange = (e) => {
@@ -25,22 +26,17 @@ const App = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/analyze-food', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: selectedImage,
-          description: description,
-        }),
-      });
+      const genAI = new GoogleGenerativeAI('YOUR_GEMINI_API_KEY');
+      const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
 
-      const data = await response.json();
-      setCalories(data.calories);
+      const prompt = `Analyze this food image and tell me the approximate calorie content. Description provided: ${description}`;
+      
+      const result = await model.generateContent([prompt, selectedImage]);
+      const response = await result.response;
+      setCalories(response.text());
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to analyze food');
+      alert('Error analyzing the image');
     }
     setLoading(false);
   };
@@ -48,9 +44,9 @@ const App = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-2xl mx-auto space-y-8">
+        <h1 className="text-3xl font-bold text-center text-gray-800">Food Calorie Detector</h1>
+        
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold mb-4">Food Calorie Detector</h2>
-          
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -66,7 +62,7 @@ const App = () => {
                 <img
                   src={selectedImage}
                   alt="Selected food"
-                  className="mt-4 max-w-full h-48 object-cover rounded-md"
+                  className="mt-4 max-h-64 mx-auto rounded-lg"
                 />
               )}
             </div>
@@ -87,14 +83,14 @@ const App = () => {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:bg-blue-300"
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300"
             >
-              {loading ? 'Analyzing...' : 'Analyze Food'}
+              {loading ? 'Analyzing...' : 'Get Calorie Information'}
             </button>
 
             {calories && (
               <div className="mt-4 p-4 bg-green-50 rounded-md">
-                <h3 className="text-lg font-semibold text-green-800">Results</h3>
+                <h2 className="text-lg font-semibold text-green-800">Analysis Result:</h2>
                 <p className="text-green-700">{calories}</p>
               </div>
             )}
