@@ -1,0 +1,13 @@
+{
+  "name": "food-calorie-detector",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "concurrently \"cd backend && npm run dev\" \"cd frontend/vite-project && npm run dev\"",
+    "build": "cd frontend/vite-project && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
