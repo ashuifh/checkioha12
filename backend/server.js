@@ -1,71 +1,39 @@
-<<<<<<< HEAD
-const express= require('express');
-const multer= require('multer');
-const cors= require('cors');
- const path=require('path');
-
- const app= express();
- app.use(cors());
-
-// Set up storage for uploaded files
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
-// Initialize multer with the storage configuration
-const upload = multer({ storage: storage });
-// Serve static files from the 'uploads' directory
-app.post('/upload', upload.single('photo'), (req, res) => {
-    const description = req.body.description;
-        const file = req.file;
-    if (!file) {
-        return res.status(400).json({ error: 'AA' });
-    }
-    if (!description) {
-        return res.status(400).json({ error: 'BB' });
-    }
-
-    res.json({
-        message: 'File uploaded successfully',
-        filename: file.originalname,
-        description: description,
-    });
-});
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-=======
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import multer from 'multer';
+import fs from 'fs';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+
+const upload = multer({ dest: 'uploads/' });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-app.post('/analyze-food', async (req, res) => {
+app.post('/upload', upload.single('photo'), async (req, res) => {
   try {
-    const { image, description } = req.body;
+    const description = req.body.description;
+    const file = req.file;
 
-    // Remove the data:image/[type];base64, prefix
-    const base64Image = image.split(',')[1];
-    
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
-    
+    if (!file || !description) {
+      return res.status(400).json({ error: 'Photo and description are required.' });
+    }
+
+    // Read the image file as base64
+    const imageBuffer = fs.readFileSync(file.path);
+    const base64Image = imageBuffer.toString('base64');
+
+   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
     const result = await model.generateContent([
-      "Analyze this food image and provide the estimated calorie count. Be concise.",
+      `Analyze this food image and description: "${description}". Provide the estimated calorie count and tell me about this fruit. Be concise.`,
       {
         inlineData: {
-          mimeType: "image/jpeg",
+          mimeType: file.mimetype,
           data: base64Image
         }
       }
@@ -81,8 +49,7 @@ app.post('/analyze-food', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
->>>>>>> 1595f7ca22fb7e7c1bf2ec7e0565f4ce879b64bc
+  console.log(`Server running on http://localhost:${PORT}`);
 });
