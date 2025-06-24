@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { FiUpload, FiCamera, FiInfo, FiSend } from 'react-icons/fi';
+import { useEffect } from 'react';
 
 const App = () => {
   const fileInputRef = useRef(null);
@@ -11,7 +12,21 @@ const App = () => {
   const [result, setResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [preview, setPreview] = useState(null);
-
+const [meals, setMeals] = useState([]);
+const [totalCalories, setTotalCalories] = useState(0);
+const fetchMeals = async () => {
+  const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  try {
+    const res = await axios.get(`http://localhost:5000/calories/${today}`);
+    setMeals(res.data.meals);
+    setTotalCalories(res.data.totalCalories);
+  } catch (err) {
+    console.error(err);
+  }
+};
+useEffect(() => {
+  fetchMeals();
+}, []);
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -31,7 +46,7 @@ const App = () => {
   };
 
   const highlightCalories = (text) => {
-    // Regular expression to find calorie values (numbers followed by 'calories' or 'kcal')
+    
     const calorieRegex = /(\d+)\s*( calories|kcal)/gi;
     
     return text.split('\n').map((line, i) => {
@@ -81,6 +96,7 @@ const App = () => {
         setfile('');
         setinputvalue('');
         setPreview(null);
+        fetchMeals(); // <-- refresh meal list
       } else {
         alert("Failed to upload photo.");
       }
@@ -197,6 +213,26 @@ const App = () => {
           </div>
         </div>
       </motion.div>
+      // Show all meals for today
+<div className="mt-8">
+  <h2 className="mb-2 text-xl font-bold">Today's Meals</h2>
+  <div>Total Calories: <span className="font-bold">{totalCalories}</span></div>
+  <div className="mt-4 space-y-4">
+    {meals.map(meal => (
+      <div key={meal._id} className="p-4 bg-white border shadow rounded-xl">
+        <img
+          src={`http://localhost:5000/${meal.photoPath}`}
+          alt=""
+          className="h-24 mb-2 rounded"
+          onError={e => { e.target.style.display = 'none'; }}
+        />
+        <div className="font-semibold">{meal.description}</div>
+        <div className="text-indigo-700">{meal.calories}</div>
+        <div className="text-xs text-gray-400">{new Date(meal.date).toLocaleString()}</div>
+      </div>
+    ))}
+  </div>
+</div>
     </div>
   );
 };

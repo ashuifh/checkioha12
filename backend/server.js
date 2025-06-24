@@ -4,6 +4,15 @@ import dotenv from 'dotenv';
 import multer from 'multer';
 import fs from 'fs';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import mongoose from 'mongoose';
+import Meal from './models/Meal.js';
+mongoose.connect('mongodb://localhost:27017/mealTracker', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
 
 dotenv.config();
 
@@ -42,12 +51,38 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
     const response = await result.response;
     const calories = response.text();
 
+    const meal = new Meal({
+      photoPath: file.path,
+      description,
+      calories,
+      date: new Date() 
+    });
+    await meal.save();
+
     res.json({ calories });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Failed to analyze food' });
   }
 });
+
+ app.get('/calories/:date',async(req,res) => {
+  const date= new Date(req.params.date);
+  const nextDate= new Date(date);
+  nextDate.setDate(date.getDate() +1);
+
+  const meals= await Meal.find({
+    date:  {$gte:date,$lt:nextDate}
+  });
+
+   const totalCalories = meals.reduce((sum, meal) => {
+      const match = meal.calories.match(/(\d+)/);
+      return sum + (match ? parseInt(match[1], 10) : 0);
+    }, 0);
+  res.json({ totalCalories, meals }); 
+}
+);
+
 
 const PORT = 5000;
 app.listen(PORT, () => {
