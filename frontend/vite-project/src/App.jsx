@@ -1,8 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { FiUpload, FiCamera, FiInfo, FiSend } from 'react-icons/fi';
-import { useEffect } from 'react';
 
 const App = () => {
   const fileInputRef = useRef(null);
@@ -12,27 +11,48 @@ const App = () => {
   const [result, setResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [preview, setPreview] = useState(null);
-const [meals, setMeals] = useState([]);
-const [totalCalories, setTotalCalories] = useState(0);
-const fetchMeals = async () => {
-  const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-  try {
-    const res = await axios.get(`http://localhost:5000/calories/${today}`);
-    setMeals(res.data.meals);
-    setTotalCalories(res.data.totalCalories);
-  } catch (err) {
-    console.error(err);
-  }
-};
+  const [meals, setMeals] = useState([]);
+  const [totalCalories, setTotalCalories] = useState(0);
+  
+
+const DAILY_CALORIE_LIMIT = 10;
+const [showLimitPopup, setShowLimitPopup] = useState(false);
+
+  const animatedCalories = useMotionValue(0);
+  const springCalories = useSpring(animatedCalories, { duration: 0.6 });
+  const displayCalories = useTransform(springCalories, latest => Math.floor(latest));
 useEffect(() => {
-  fetchMeals();
-}, []);
+  if (totalCalories > DAILY_CALORIE_LIMIT) {
+    setShowLimitPopup(true);
+  } else {
+    setShowLimitPopup(false);
+  }
+}, [totalCalories]);
+  const fetchMeals = async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const res = await axios.get(`http://localhost:5000/calories/${today}`);
+      setMeals(res.data.meals);
+      setTotalCalories(res.data.totalCalories);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchMeals();
+  }, []);
+
+useEffect(() => {
+  animatedCalories.set(totalCalories);
+}, [totalCalories, animatedCalories]);
+
+
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
       setphotoname(file.name);
       setfile(file);
-      
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreview(reader.result);
@@ -46,19 +66,15 @@ useEffect(() => {
   };
 
   const highlightCalories = (text) => {
-    
     const calorieRegex = /(\d+)\s*( calories|kcal)/gi;
-    
     return text.split('\n').map((line, i) => {
       if (!line) return null;
-      
       const parts = line.split(calorieRegex);
-      
       return (
         <p key={i} className="mb-2 text-gray-700">
           {parts.map((part, index) => {
             if (calorieRegex.test(part)) {
-              calorieRegex.lastIndex = 0; 
+              calorieRegex.lastIndex = 0;
               return (
                 <span key={index} className="bg-yellow-100 text-yellow-800 font-bold px-1 py-0.5 rounded">
                   {part}
@@ -96,7 +112,7 @@ useEffect(() => {
         setfile('');
         setinputvalue('');
         setPreview(null);
-        fetchMeals(); // <-- refresh meal list
+        fetchMeals(); // refresh list
       } else {
         alert("Failed to upload photo.");
       }
@@ -110,7 +126,7 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen px-4 py-12 bg-gradient-to-br from-blue-50 to-indigo-100 sm:px-6 lg:px-8">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -123,24 +139,24 @@ useEffect(() => {
           </div>
 
           <div className="space-y-6">
-            <div 
+            <div
               onClick={handlePhotoClick}
               className={`group relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all 
                 ${preview ? 'border-indigo-300' : 'border-gray-300 hover:border-indigo-400'}`}
             >
-              <input 
-                type="file" 
-                accept="image/*" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
               />
-              
+
               {preview ? (
                 <div className="relative">
-                  <img 
-                    src={preview} 
-                    alt="Preview" 
+                  <img
+                    src={preview}
+                    alt="Preview"
                     className="object-cover h-48 mx-auto rounded-lg shadow-sm"
                   />
                   <div className="absolute inset-0 flex items-center justify-center transition-all bg-black bg-opacity-0 rounded-lg group-hover:bg-opacity-20">
@@ -196,43 +212,69 @@ useEffect(() => {
                 </>
               )}
             </motion.button>
-
+            {showLimitPopup && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+    <div className="p-8 text-center bg-white shadow-lg rounded-xl">
+      <h2 className="mb-2 text-2xl font-bold text-red-600">Calorie Limit Exceeded!</h2>
+      <p className="mb-4">You have exceeded your daily limit of {DAILY_CALORIE_LIMIT} calories.</p>
+      <button
+        className="px-4 py-2 text-white bg-indigo-600 rounded hover:bg-indigo-700"
+        onClick={() => setShowLimitPopup(false)}
+      >
+        OK
+      </button>
+    </div>
+  </div>
+)}
             {result && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 transition={{ duration: 0.3 }}
                 className="p-6 mt-6 border border-indigo-100 bg-indigo-50 rounded-xl"
               >
                 <h3 className="mb-3 text-lg font-semibold text-indigo-700">Calorie Analysis</h3>
-                <div className="prose prose-indigo">
-                  {highlightCalories(result)}
-                </div>
+                <div className="prose prose-indigo">{highlightCalories(result)}</div>
               </motion.div>
             )}
           </div>
         </div>
       </motion.div>
-      // Show all meals for today
-<div className="mt-8">
-  <h2 className="mb-2 text-xl font-bold">Today's Meals</h2>
-  <div>Total Calories: <span className="font-bold">{totalCalories}</span></div>
-  <div className="mt-4 space-y-4">
-    {meals.map(meal => (
-      <div key={meal._id} className="p-4 bg-white border shadow rounded-xl">
-        <img
-          src={`http://localhost:5000/${meal.photoPath}`}
-          alt=""
-          className="h-24 mb-2 rounded"
-          onError={e => { e.target.style.display = 'none'; }}
-        />
-        <div className="font-semibold">{meal.description}</div>
-        <div className="text-indigo-700">{meal.calories}</div>
-        <div className="text-xs text-gray-400">{new Date(meal.date).toLocaleString()}</div>
+
+      {/* Meal section */}
+      <div className="max-w-2xl mx-auto mt-8">
+        <h2 className="mb-2 text-xl font-bold">Today's Meals</h2>
+        <div>
+          Total Calories:{' '}
+          <motion.span className="text-lg font-bold text-indigo-600">
+            {displayCalories}
+          </motion.span>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          {meals.map((meal) => (
+            <motion.div
+              key={meal._id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="p-4 bg-white border shadow rounded-xl"
+            >
+              <img
+                src={`http://localhost:5000/${meal.photoPath}`}
+                alt=""
+                className="h-24 mb-2 rounded"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+              <div className="font-semibold">{meal.description}</div>
+              <div className="text-indigo-700">{meal.calories}</div>
+              <div className="text-xs text-gray-400">{new Date(meal.date).toLocaleString()}</div>
+            </motion.div>
+          ))}
+        </div>
       </div>
-    ))}
-  </div>
-</div>
     </div>
   );
 };

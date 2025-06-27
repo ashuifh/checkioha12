@@ -22,7 +22,6 @@ app.use(cors());
 const upload = multer({ dest: 'uploads/' });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 app.post('/upload', upload.single('photo'), async (req, res) => {
   try {
     const description = req.body.description;
@@ -32,11 +31,10 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
       return res.status(400).json({ error: 'Photo and description are required.' });
     }
 
-    // Read the image file as base64
     const imageBuffer = fs.readFileSync(file.path);
     const base64Image = imageBuffer.toString('base64');
 
-   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const result = await model.generateContent([
       `Analyze this food image and description: "${description}". Provide the estimated calorie count and tell me about this fruit. Be concise.`,
@@ -51,10 +49,18 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
     const response = await result.response;
     const calories = response.text();
 
+let calorieValue = 0;
+const calorieRegex = /(\d+)\s*(?:calories?|kcal)|(?:calories?|kcal)\s*[:\-]?\s*(\d+)/i;
+const match = calories.match(calorieRegex);
+if (match) {
+  calorieValue = parseInt(match[1] || match[2], 10);
+}
+
     const meal = new Meal({
       photoPath: file.path,
       description,
-      calories,
+      calories,      // Full AI response
+      calorieValue,  // Only the number
       date: new Date() 
     });
     await meal.save();
@@ -66,22 +72,18 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
   }
 });
 
- app.get('/calories/:date',async(req,res) => {
-  const date= new Date(req.params.date);
-  const nextDate= new Date(date);
-  nextDate.setDate(date.getDate() +1);
+app.get('/calories/:date', async (req, res) => {
+  const date = new Date(req.params.date);
+  const nextDate = new Date(date);
+  nextDate.setDate(date.getDate() + 1);
 
-  const meals= await Meal.find({
-    date:  {$gte:date,$lt:nextDate}
+  const meals = await Meal.find({
+    date: { $gte: date, $lt: nextDate }
   });
 
-   const totalCalories = meals.reduce((sum, meal) => {
-      const match = meal.calories.match(/(\d+)/);
-      return sum + (match ? parseInt(match[1], 10) : 0);
-    }, 0);
-  res.json({ totalCalories, meals }); 
-}
-);
+  const totalCalories = meals.reduce((sum, meal) => sum + (meal.calorieValue || 0), 0);
+  res.json({ totalCalories, meals });
+});
 
 
 const PORT = 5000;
