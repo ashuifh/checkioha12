@@ -12,8 +12,7 @@ mongoose.connect('mongodb://localhost:27017/mealTracker', {
 })
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
-
-
+  
 dotenv.config();
 
 const app = express();
@@ -37,7 +36,7 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const result = await model.generateContent([
-      `Analyze this food image and description: "${description}". Provide the estimated calorie count and tell me about this fruit. Be concise.`,
+      `Analyze this food image and description: "${description}". Provide the estimated calorie count, protein (g), carbs (g), fiber (g), and fat (g) in a clear, labeled format.`,
       {
         inlineData: {
           mimeType: file.mimetype,
@@ -48,7 +47,17 @@ app.post('/upload', upload.single('photo'), async (req, res) => {
 
     const response = await result.response;
     const calories = response.text();
+    console.log('Gemini response:', calories);
 
+  const getNutrient = (label) => {
+  const match = calories.match(new RegExp(`${label}\\s*:?\\s*([\\d\\.]+)\\s*g?`, 'i'));
+  return match ? parseFloat(match[1]) : 0;
+};
+
+const protein = getNutrient('protein');
+const carbs = getNutrient('carbs');
+const fiber = getNutrient('fiber');
+const fat = getNutrient('fat');
 let calorieValue = 0;
 const calorieRegex = /(\d+)\s*(?:calories?|kcal)|(?:calories?|kcal)\s*[:\-]?\s*(\d+)/i;
 const match = calories.match(calorieRegex);
@@ -57,11 +66,15 @@ if (match) {
 }
 
     const meal = new Meal({
-      photoPath: file.path,
-      description,
-      calories,      // Full AI response
-      calorieValue,  // Only the number
-      date: new Date() 
+     photoPath: file.path,
+  description,
+  calories,
+  calorieValue,
+  protein,
+  carbs,
+  fiber,
+  fat,
+  date: new Date()
     });
     await meal.save();
 

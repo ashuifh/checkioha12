@@ -15,7 +15,7 @@ const App = () => {
   const [totalCalories, setTotalCalories] = useState(0);
   
 
-const DAILY_CALORIE_LIMIT = 10;
+const DAILY_CALORIE_LIMIT = 1000;
 const [showLimitPopup, setShowLimitPopup] = useState(false);
 
   const animatedCalories = useMotionValue(0);
@@ -47,6 +47,16 @@ useEffect(() => {
   animatedCalories.set(totalCalories);
 }, [totalCalories, animatedCalories]);
 
+const dailyTotals = meals.reduce(
+  (totals, meal) => ({
+    calories: totals.calories + (meal.calorieValue || 0),
+    protein: totals.protein + (meal.protein || 0),
+    carbs: totals.carbs + (meal.carbs || 0),
+    fiber: totals.fiber + (meal.fiber || 0),
+    fat: totals.fat + (meal.fat || 0),
+  }),
+  { calories: 0, protein: 0, carbs: 0, fiber: 0, fat: 0 }
+);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -175,7 +185,6 @@ useEffect(() => {
                 </div>
               )}
             </div>
-
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <FiInfo className="text-gray-400" />
