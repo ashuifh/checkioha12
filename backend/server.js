@@ -98,7 +98,9 @@ app.get('/calories/:date', async (req, res) => {
   res.json({ totalCalories, meals });
 });
 
-
+app.get('/', (req, res) => {
+  res.send('Dream Job API is running!');
+});
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
